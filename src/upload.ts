@@ -3,7 +3,8 @@ import { PutObjectCommand,  } from "@aws-sdk/client-s3";
 import axios from 'axios';
 import {s3Client} from './s3Client';
 
-
+// I need to save the data in the correct folder and file path
+// I need to loop through the m3u8 file as I am saving it to the bucket
 
 async function uploadStreamToS3(readableStream: Readable, bucketName: string|undefined, objectKey: string) {
 
@@ -38,7 +39,7 @@ async function uploadStreamToS3(readableStream: Readable, bucketName: string|und
   }
 }
 
-export async function upload_to_S3(filePath: string, url: string, bucketName: string|undefined = process.env.BUCKET) {
+export async function upload_to_S3(filePath: string, url: string, endpoint_reference: string, bucketName: string|undefined = process.env.BUCKET) {
 
   try {
     const response = await axios.get(url);
