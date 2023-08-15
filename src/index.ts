@@ -9,3 +9,13 @@ const url = 'https://xis.fifteennet.com/_v10/737468cdc60a4530fc37b79ac3b0b8d6949
 
 // matrix_hindi.m3u8 is from
 // https://embed.smashystream.com/playere.php?tmdb=603
+
+// This package should be able to do multiple things
+// The first is get every kind of video data
+// The second is send the data to an S3 bucket or any online storage
+// The third is automate downloading multiple m3u8 files
+//  i.e. look through the m3u8 file and download the files it calls to
+// The fourth is name every file and folder appropriately
+// The fifth is log errors and success
+// The sixth is to modular enough to simply be called from import and used
+// The seventh is to be lightweight and fast.
