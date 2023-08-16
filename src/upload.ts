@@ -6,7 +6,24 @@ import {s3Client} from './s3Client';
 // I need to save the data in the correct folder and file path
 // I need to loop through the m3u8 file as I am saving it to the bucket
 
+function removeM3U8File(url:string) {
+  const regex = /(.*)\/[^/]*\.m3u8$/;
+  const match = url.match(regex);
+  return match ? match[1] : url;
+}
+
+// async function isM3U8() {
+
+// }
+
 async function uploadStreamToS3(readableStream: Readable, bucketName: string|undefined, objectKey: string) {
+
+
+  const file_string = 'seg-1-v1-a1.jpg';
+  const comment_string = '#EXTINF:4.046,';
+  if (comment_string[0] !== '#') {
+
+  }
 
   // readableStream.pipe({
   //   Transform({
