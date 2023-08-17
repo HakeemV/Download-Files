@@ -1,7 +1,8 @@
 import { Readable , Transform } from 'stream';
-// import { ChecksumAlgorithm, PutObjectCommand,  } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import axios from 'axios';
 import {s3Client} from './s3Client';
+import { createWriteStream } from 'node:fs';
 
 // I need to save the data in the correct folder and file path
 // I need to loop through the m3u8 file as I am saving it to the bucket
@@ -50,56 +51,79 @@ export function hasM3U8(str: string) {
 
 async function uploadStreamToS3(readableStream: Readable, bucketName: string|undefined, objectKey: string) {
 
-  if(hasM3U8(objectKey)) {
-    const processLinesStream = new Transform({
-      transform(chunk, encoding, callback) {
-        const lines = chunk.toString().split('\n');
-        for (const line of lines) {
+  const uploadCommand = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: objectKey,
+    Body: readableStream.toString(),
+  });
 
-          const lineType = checkStringType(line);
-          if (lineType[0]) {
-            // console.log('Line starts with #EXT:', line);
-            // Do something specific with this line (e.g., call another function)
-            console.log('Line says:', line);
-
-          } else {
-            // console.log('Line says:', line);
-            //
-          }
-        }
-        this.push(chunk);
-        callback();
-      }
-    });
-
-    let doesItWork: any;
-
-    readableStream.pipe(processLinesStream).pipe(doesItWork);
-    // console.log(processLinesStream);
+  try {
+    await s3Client.send(uploadCommand);
+    console.log("Upload successful");
+  } catch (err) {
+    console.error("Error uploading:", err);
   }
 
-  // const uploadCommand = new PutObjectCommand({
-  //   Bucket: bucketName,
-  //   Key: objectKey,
-  //   Body: readableStream,
-  // });
+  if(hasM3U8(objectKey)) {
+    console.log('File has m3u8 format');
 
-  // try {
-  //   await s3Client.send(uploadCommand);
-  //   console.log("Upload successful");
-  // } catch (err) {
-  //   console.error("Error uploading:", err);
-  // }
+    // const writableStream = createWriteStream('output.ext');
+    //   readableStream.pipe(writableStream);
+
+    readableStream.on('data', (chunk) => {
+      // Modify the data (e.g., convert to uppercase)
+      const lines = chunk.toString().split('\n');
+
+      for(const line of lines) {
+
+        const fileRef = checkStringType(line);
+
+        if(fileRef[0] === 'true'){
+
+          // console.log('Did it work:', fileRef[2]);
+        }
+      }
+
+
+      // console.log('Chunk:', modifiedChunk);
+
+    });
+
+    // const processLinesStream = new Transform({
+    //   transform(chunk, encoding, callback) {
+    //     const lines = chunk.toString().split('\n');
+    //     for (const line of lines) {
+
+    //       const lineType = checkStringType(line);
+    //       if (lineType[0]) {
+    //         // console.log('Line starts with #EXT:', line);
+    //         // Do something specific with this line (e.g., call another function)
+    //         console.log('Line says:', line);
+
+    //       } else {
+    //         // console.log('Line says:', line);
+    //         //
+    //       }
+    //     }
+    //     this.push(chunk);
+    //     callback();
+    //   }
+    // });
+
+  }
+
+
 }
 
 export async function upload_to_S3(filePath: string, url: string, endpoint_reference: string, bucketName: string|undefined = process.env.BUCKET) {
 
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(url, {responseType: 'stream'});
 
     if (response.status === 200) {
       const readableStream = response.data;
 
+      console.log('Response 200');
       uploadStreamToS3(readableStream, bucketName, filePath);
     } else {
       console.error("Error downloading: Status Code", response.status);
