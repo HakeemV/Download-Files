@@ -1,11 +1,10 @@
-import { Readable, Transform } from 'stream';
-import { ChecksumAlgorithm, PutObjectCommand,  } from "@aws-sdk/client-s3";
+import { Readable , Transform } from 'stream';
+// import { ChecksumAlgorithm, PutObjectCommand,  } from "@aws-sdk/client-s3";
 import axios from 'axios';
 import {s3Client} from './s3Client';
 
 // I need to save the data in the correct folder and file path
 // I need to loop through the m3u8 file as I am saving it to the bucket
-
 
 export function checkStringType(str: string) {
   const fileOnlyRegex = /^[^/]+$/; // Only file name
@@ -14,18 +13,24 @@ export function checkStringType(str: string) {
   const extRegex = /^#EXT/; // Matches strings starting with #EXT
 
   if (extRegex.test(str)) {
-    return [false, '#EXT', 'temp'];
+    return ['false', '#EXT', 'temp'];
+
   } else if (fileOnlyRegex.test(str)) {
     const nameObj = str.match(fileOnlyRegex);
-    const fileName = nameObj[0].length > 0? nameObj[0] : 'temp';
+    const fileName = nameObj !== null? nameObj[0] : 'temp';
+    return ['true', 'File', fileName];
 
-    return [true, 'File', ];
   } else if (fileWithPathRegex.test(str)) {
-    return [true, 'File with path', str.match(fileWithPathRegex)];
+    const nameObj = str.match(fileWithPathRegex);
+    const fileName = nameObj !== null? nameObj[0] : 'temp';
+    return ['true', 'File with path', fileName];
+
   } else if (webUrlRegex.test(str)) {
-    return [true, 'Url', str.match(webUrlRegex)];
+    const nameObj = str.match(webUrlRegex);
+    const fileName = nameObj !== null? nameObj[0] : 'temp';
+    return ['true', 'Url', fileName];
   } else {
-    return [false, 'Unknown string type', 'temp'];
+    return ['false', 'Unknown string type', 'temp'];
   }
 }
 
@@ -66,9 +71,11 @@ async function uploadStreamToS3(readableStream: Readable, bucketName: string|und
         callback();
       }
     });
-    console.log(processLinesStream);
 
-    readableStream.pipe(processLinesStream);
+    let doesItWork: any;
+
+    readableStream.pipe(processLinesStream).pipe(doesItWork);
+    // console.log(processLinesStream);
   }
 
   // const uploadCommand = new PutObjectCommand({
