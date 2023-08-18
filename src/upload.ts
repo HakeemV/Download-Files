@@ -1,11 +1,8 @@
 import { Readable , Transform } from 'stream';
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import axios from 'axios';
+import axios, { AxiosResponse } from 'axios';
 import {s3Client} from './s3Client';
-import { createWriteStream } from 'node:fs';
-
-// I need to save the data in the correct folder and file path
-// I need to loop through the m3u8 file as I am saving it to the bucket
+import { Upload } from '@aws-sdk/lib-storage';
 
 export function checkStringType(str: string) {
   const fileOnlyRegex = /^[^/]+$/; // Only file name
@@ -49,82 +46,61 @@ export function hasM3U8(str: string) {
   return regex.test(str); // Returns true or false
 }
 
-async function uploadStreamToS3(readableStream: Readable, bucketName: string|undefined, objectKey: string) {
-
-  const uploadCommand = new PutObjectCommand({
-    Bucket: bucketName,
-    Key: objectKey,
-    Body: readableStream.toString(),
-  });
+async function uploadStreamToS3(readableStream: AxiosResponse<any, any>, bucketName: string|undefined, objectKey: string, url:string, endpoint_reference:string) {
 
   try {
-    await s3Client.send(uploadCommand);
-    console.log("Upload successful");
-  } catch (err) {
-    console.error("Error uploading:", err);
+    const parallelUploads3 = new Upload({
+      client: s3Client,
+      params: {
+          Bucket: bucketName,
+          Key: objectKey,
+          Body: readableStream.data,
+        },
+
+      tags: [
+        /*...*/
+      ], // optional tags
+      // queueSize: 4, // optional concurrency configuration
+      // partSize: 1024 * 1024 * 5, // optional size of each part, in bytes, at least 5MB
+      // leavePartsOnError: false, // optional manually handle dropped parts
+    });
+
+    parallelUploads3.on("httpUploadProgress", (progress) => {
+      console.log(progress);
+    });
+
+    await parallelUploads3.done();
+  } catch (error) {
+    console.log(error);
   }
 
   if(hasM3U8(objectKey)) {
-    console.log('File has m3u8 format');
 
-    // const writableStream = createWriteStream('output.ext');
-    //   readableStream.pipe(writableStream);
+    const baseUrl = {
+      url: removeM3U8File(url),
+    };
 
-    readableStream.on('data', (chunk) => {
-      // Modify the data (e.g., convert to uppercase)
-      const lines = chunk.toString().split('\n');
+    const lines = readableStream.data.split('\n');
+    lines.forEach((line:string, index:number) => {
+      const fileRef = checkStringType(line);
 
-      for(const line of lines) {
+      if(fileRef[0] === 'true' && index % 223 === 0){
 
-        const fileRef = checkStringType(line);
-
-        if(fileRef[0] === 'true'){
-
-          // console.log('Did it work:', fileRef[2]);
-        }
+        upload_to_S3(fileRef[2], `${baseUrl.url}/${fileRef[2]}`, endpoint_reference);
       }
-
-
-      // console.log('Chunk:', modifiedChunk);
-
     });
-
-    // const processLinesStream = new Transform({
-    //   transform(chunk, encoding, callback) {
-    //     const lines = chunk.toString().split('\n');
-    //     for (const line of lines) {
-
-    //       const lineType = checkStringType(line);
-    //       if (lineType[0]) {
-    //         // console.log('Line starts with #EXT:', line);
-    //         // Do something specific with this line (e.g., call another function)
-    //         console.log('Line says:', line);
-
-    //       } else {
-    //         // console.log('Line says:', line);
-    //         //
-    //       }
-    //     }
-    //     this.push(chunk);
-    //     callback();
-    //   }
-    // });
-
   }
-
-
 }
 
 export async function upload_to_S3(filePath: string, url: string, endpoint_reference: string, bucketName: string|undefined = process.env.BUCKET) {
 
   try {
-    const response = await axios.get(url, {responseType: 'stream'});
+    const response = await axios.get(url);
 
     if (response.status === 200) {
-      const readableStream = response.data;
 
       console.log('Response 200');
-      uploadStreamToS3(readableStream, bucketName, filePath);
+      uploadStreamToS3(response, bucketName, filePath, url, endpoint_reference);
     } else {
       console.error("Error downloading: Status Code", response.status);
     }
